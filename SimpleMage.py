@@ -41,7 +41,7 @@ class SimpleMage(Player):
             return
         if self.get_dist_squared_to_specified_target(target) < self.Q_Range_Squared:
             if self.Q_cooldown_tracker.cast():
-                damage = self.stats.attack_damage * 10 # TODO: Implement mana, magic damage, ability power and switch over
+                damage = self.stats.attack_damage * 5 # TODO: Implement mana, magic damage, ability power and switch over
                 self.add_event_hook(targeted_damage_callback(target, damage), self.Q_Sim_Step_To_Hit) # add a callback event. This uses Simulator.add_callback_event_by_sim_step_delta
                 if self.return_display_element:
                     return DisplayElementProjectileLerpSourceTarget(self, target, self.Q_Display_Size, self.Q_Color, self.Q_Sim_Step_To_Hit)

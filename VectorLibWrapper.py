@@ -3,6 +3,7 @@ from dataclasses import dataclass
 
 @dataclass
 class Entity:
+    uid: int
     x: float
     y: float
     size: float
@@ -10,11 +11,10 @@ class Entity:
 
 class VectorLibWrapper:
     def __init__(self):
-        self.x = []
-        self.y = []
+        self.entities = []
 
     def register_entity(self, uid, x, y, size, speed):
-        self.x
+        self.entities.append(Entity(uid, x, y, size, speed))
         
     def get_pairwise_distances(self):
         pass

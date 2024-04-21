@@ -9,11 +9,11 @@ SCALE = 4.0
 
 STRUCTURE_STATS = lambda: BaseStats(200, 200, 50, 0, TURRET_SIZE, 50, 2.0, TURRET_AGGRO_DISTANCE, 300, 300)
 MELEE_MINION_STATS = lambda: BaseStats(100, 100, 0, 8.0, MINION_SIZE, 5, 1.0, MINION_SIZE * 2, 20, 20)
-RANGED_MINION_STATS = lambda: BaseStats(100, 100, 0, 8.0, MINION_SIZE * 0.8, 5, 1.0, MINION_AGGRO_DISTANCE, 20, 20)
+RANGED_MINION_STATS = lambda: BaseStats(70, 70, 0, 8.0, MINION_SIZE * 0.8, 15, 1.0, MINION_AGGRO_DISTANCE, 20, 20)
 
 STRONG_MINION_STATS = lambda: BaseStats(1000, 1000, 0, 8.0, MINION_SIZE * 1.3, 100, 1.0, MINION_AGGRO_DISTANCE * 0.7, 20, 20)
 
-PLAYER_STATS = lambda: BaseStats(500, 500, 100, 10.0, PLAYER_SIZE, 20, 1.0, MINION_AGGRO_DISTANCE * 1.0, 200, 100)
+PLAYER_STATS = lambda: BaseStats(500, 500, 100, 10.0, PLAYER_SIZE, 50, 1.0, MINION_AGGRO_DISTANCE * 1.0, 200, 100)
 PLAYER_LEVEL_STATS = lambda: LevelStats(100, 10, 0.1, 10, 0.1)
 
 class Game:
@@ -42,8 +42,11 @@ class Game:
         else:
             self.player = team_b_player
             self.alt_player = team_a_player
+        
+        self.team_to_play = team_to_play
 
         self.display = Display(SCALE * MAP_X_DIM + 2 * VISUAL_PADDING, SCALE * MAP_Y_DIM + 2 * VISUAL_PADDING, display_elem_tracking_only=display_elem_tracking_only) # TODO: add a "tracking only" property so that the screen doesn't get created
+    
     def step(self, command=None, alt_command=None, skip_render=False, delay=100):
         # Player inputs
         if self.use_input_tracking:
@@ -52,6 +55,8 @@ class Game:
                 alt_command = command
                 command = None
                 self.inputTracker.next_command_for_alt = False
+        elif not skip_render and not self.display.display_elem_tracking_only:
+            self.inputTracker.clear_events()
         self.perform_command(command, True)
         self.perform_command(alt_command, False)
 

@@ -34,8 +34,8 @@ def run_test_pvp():
     model1 = A2C("CnnPolicy", env1, verbose=1)
     model2 = A2C("CnnPolicy", env2, verbose=1)
     
-    env1.set_enemy_model(model2)
-    env2.set_enemy_model(model1)
+    env1.set_enemy_info(model2)
+    env2.set_enemy_info(model1)
     
     for i in range(5):
         model1.learn(total_timesteps=10_000)

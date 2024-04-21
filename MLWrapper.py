@@ -8,7 +8,7 @@ import gymnasium as gym
 from gymnasium import spaces
 
 NUM_COMMANDS = 5
-MAX_SIM_STEPS = 600
+MAX_SIM_STEPS = 1000
 
 FULL_IMG_CHANNELS = 7
 
@@ -26,7 +26,7 @@ class ObservationMode(Enum):
 
 class MLWrapper(gym.Env):
     metadata = {"render_modes": []}
-    def __init__(self, x_dim, y_dim, sim_step_randomness_scale = 3, render_mode=None, obs_mode=ObservationMode.SIMPLE_IMAGE, display_elem_tracking_only=False):
+    def __init__(self, x_dim, y_dim, sim_step_randomness_scale = 3, render_mode=None, obs_mode=ObservationMode.SIMPLE_IMAGE, display_elem_tracking_only=False, max_sim_steps=MAX_SIM_STEPS):
         self.x_dim = x_dim
         self.y_dim = y_dim
         self.sim_step_randomness_scale = sim_step_randomness_scale # Amount of randomness injected into the number of sim steps to wait for next action
@@ -38,9 +38,10 @@ class MLWrapper(gym.Env):
         # Gym API
         self.obs_mode = obs_mode
         self.observation_space = self.get_obs_space()
-        self.action_space = spaces.Box(-50, 50, shape=(8,)) # NUM_COMMANDS + 2 coord inputs + steps to wait input
+        self.action_space = spaces.Box(-1, 1, shape=(8,)) # NUM_COMMANDS + 2 coord inputs + steps to wait input
         self.render_mode = render_mode
 
+        self.max_sim_steps = max_sim_steps
         self.display_elem_tracking_only = display_elem_tracking_only
         self.reset() # Create game with any randomness
 
@@ -52,27 +53,8 @@ class MLWrapper(gym.Env):
     def get_obs_space(self):
         if self.obs_mode == ObservationMode.SIMPLE_IMAGE: return spaces.Box(0, 255, (1, self.x_dim, self.y_dim), np.uint8)
         elif self.obs_mode == ObservationMode.FULL_IMAGE: return spaces.Box(0, 255, (FULL_IMG_CHANNELS, self.x_dim, self.y_dim), np.uint8)
-        elif self.obs_mode == ObservationMode.VECTOR_10: return spaces.Box(-100, 100, (VEC_10_ATTRIBUTES, VEC_10_UNITS))
+        elif self.obs_mode == ObservationMode.VECTOR_10: return spaces.Box(-1, 1, (VEC_10_ATTRIBUTES, VEC_10_UNITS))
         assert False, f"Invalid observation mode {self.obs_mode}"
-
-    def build_observation_space(self):
-        category_values_low = np.zeros((4, self.x_dim, self.y_dim))
-        category_values_high = 5 * np.ones((4, self.x_dim, self.y_dim))
-
-        health_values_low = np.zeros((1, self.x_dim, self.y_dim))
-        health_values_high = 5000 * np.ones((1, self.x_dim, self.y_dim))
-
-        proj_delta_low = -20 * np.ones((2, self.x_dim, self.y_dim))
-        proj_delta_high = -proj_delta_low
-
-        low = np.concatenate((category_values_low, health_values_low, proj_delta_low), axis=0)
-        high = np.concatenate((category_values_high, health_values_high, proj_delta_high), axis=0)
-
-        n_frames = 2
-        low = np.concatenate([low for _ in range(n_frames)], axis=0)
-        high = np.concatenate([high for _ in range(n_frames)], axis=0)
-
-        return spaces.Box(low, high, shape=low.shape)
     
     def internal_step(self, command_index: int, command_dx, command_dy, sim_steps_to_wait: int):
         # Get command. Arbitrary index -> command mapping
@@ -168,6 +150,15 @@ class MLWrapper(gym.Env):
             unit.stats.health / 50
         )
     
+    def get_basic_unit_props_non_img(self, main_team, unit: Minion):
+        return (
+            unit.unitType.value - 1,
+            -1 if unit.team == main_team else 1,
+            unit.state.value - 1,
+            unit.aa_state.value - 1,
+            np.clip(unit.stats.health / 3000, 0, 1)
+        )
+    
     def get_numpy_full_img(self, for_main):
         num_channels = FULL_IMG_CHANNELS # Just the number of attributes added below
         rep = np.zeros((num_channels, self.x_dim, self.y_dim), dtype=np.uint8) 
@@ -199,10 +190,10 @@ class MLWrapper(gym.Env):
         # Add in units
         for i, unit in enumerate([player] + [other_player] + minions + turrets):
             # Basic attributes and state
-            rep[0:5, i] = self.get_basic_unit_props(team, unit)
+            rep[0:5, i] = self.get_basic_unit_props_non_img(team, unit)
             if unit.target is not None:
                 dx, dy, _, _ = unit.get_dist_to_target()
-                rep[5:7, i] = dx, dy
+                rep[5:7, i] = np.clip([dx, dy], -50, 50) / 50
 
         return rep
     
@@ -225,7 +216,7 @@ class MLWrapper(gym.Env):
         return obs, reward, terminated, truncated, {}
 
     def terminated_or_truncated_info(self):
-        return (not self.game.nexus_A.active) or (not self.game.nexus_B.active), self.game.sim.sim_step > MAX_SIM_STEPS
+        return (not self.game.nexus_A.active) or (not self.game.nexus_B.active), self.game.sim.sim_step > self.max_sim_steps
 
     def get_terminated_truncated_reward(self, terminated, truncated, player):
         reward = 0
@@ -235,7 +226,7 @@ class MLWrapper(gym.Env):
             won = player.team == TEAM_A
         if terminated:
             if won:
-                reward = 200 - 5 * self.game.sim.sim_step / MAX_SIM_STEPS # player on team B by default, so victory
+                reward = 200 - 5 * self.game.sim.sim_step / self.max_sim_steps # player on team B by default, so victory
             else:            
                 reward = -200 # Defeat=
 
@@ -245,13 +236,12 @@ class MLWrapper(gym.Env):
         return reward
 
     def get_rewards(self, steps_to_wait, new_gold):
-        return new_gold / 20 + steps_to_wait / 100
+        return new_gold / 20 + steps_to_wait ** 2 / 900
 
     def parse_action_array(self, action):
         command_index = int(np.argmax(action[:NUM_COMMANDS]))
-        dx = action[NUM_COMMANDS]
-        dy = action[NUM_COMMANDS + 1]
-        steps_to_wait = max(min(int(action[NUM_COMMANDS + 2]), 30), 10)
+        dx, dy = action[NUM_COMMANDS:NUM_COMMANDS + 2] * 50
+        steps_to_wait = int(np.clip(action[NUM_COMMANDS + 2] * 10 + 20, 10, 30))
         return command_index, dx, dy, steps_to_wait
 
     def reset(self, seed = None, options = None):
@@ -262,7 +252,7 @@ class MLWrapper(gym.Env):
         return self.get_numpy(), {}
     
     def render(self):
-        self.game.renderState(250)
+        self.game.renderState()
         print("Rendered")
         return None
 
@@ -271,19 +261,24 @@ class MLWrapper(gym.Env):
         pygame.display.quit()
 
 class MatchWrapper(MLWrapper):
-    def __init__(self, x_dim, y_dim, sim_step_randomness_scale=3, render_mode=None, base_obs_mode=ObservationMode.SIMPLE_IMAGE, display_elem_tracking_only=False):
-        super().__init__(x_dim, y_dim, sim_step_randomness_scale, render_mode,obs_mode=base_obs_mode, display_elem_tracking_only=display_elem_tracking_only)
+    def __init__(self, x_dim, y_dim, sim_step_randomness_scale=3, render_mode=None, base_obs_mode=ObservationMode.SIMPLE_IMAGE, display_elem_tracking_only=False, max_sim_steps=MAX_SIM_STEPS):
+        super().__init__(x_dim, y_dim, sim_step_randomness_scale, render_mode,obs_mode=base_obs_mode, display_elem_tracking_only=display_elem_tracking_only, max_sim_steps=max_sim_steps)
         self.cumulative_rewards = {AgentRole.MAIN: 0.0, AgentRole.ALT: 0.0} # Track rewards for each player
         self.next_timesteps = {AgentRole.MAIN: 0, AgentRole.ALT: 0}
         self.last_gold = {AgentRole.MAIN: 0, AgentRole.ALT: 0}
         self.last_sim_steps_to_wait = {AgentRole.MAIN: 0, AgentRole.ALT: 0}
         self.models: dict[AgentRole, Optional[PPO]] = {AgentRole.MAIN: None, AgentRole.ALT: None}
+        self.display_infos: dict[AgentRole, str] = {AgentRole.MAIN: "", AgentRole.ALT: ""}
         self.obs_modes: dict[AgentRole, ObservationMode] = {AgentRole.MAIN: ObservationMode.SIMPLE_IMAGE, AgentRole.ALT: ObservationMode.SIMPLE_IMAGE}
         self.players = {AgentRole.MAIN: self.game.player, AgentRole.ALT: self.game.alt_player}
+        self.last_actions = {AgentRole.MAIN: None, AgentRole.ALT: None}
         self.show_obs = False
 
     def set_models(self, models):
         self.models = models
+
+    def set_display_infos(self, info):
+        self.display_infos = info
     
     def set_obs_modes(self, obs_modes):
         self.obs_modes = obs_modes
@@ -291,14 +286,33 @@ class MatchWrapper(MLWrapper):
     def get_timestep_to_stop(self):
         return min([self.next_timesteps[a] for a in self.next_timesteps])
 
-    def extra_display(self):
-        if self.show_obs:
-            Z = np.abs(np.mean(self.get_numpy(), axis=0))
-            Z = 255*Z/Z.max()
-            surf = pygame.surfarray.make_surface(Z)
-            self.game.display.screen.blit(surf, (0, 0))
+    def extra_display(self, render=False):
+        if render:
+            y_start = 0
+            if self.show_obs:
+                Z = np.abs(np.mean(self.get_numpy(), axis=0))
+                Z = 255*Z/Z.max()
+                surf = pygame.surfarray.make_surface(Z)
+                self.game.display.screen.blit(surf, (0, y_start))
+                y_start += surf.get_rect().height
+            font = pygame.font.Font(None, 16)
+            top_player_info, bottom_player_info = self.map_items_to_main_alt(self.display_infos)
+            text = font.render(f"{top_player_info} (top player) vs", True, (0, 0, 0))
+            self.game.display.screen.blit(text, (0, y_start))
+            y_start += text.get_rect().height
+            text = font.render(f"{bottom_player_info} (bottom player)", True, (0, 0, 0))
+            self.game.display.screen.blit(text, (0, y_start))
+            y_start += text.get_rect().height
+            # Last actions
+            top_player_last_action, bottom_player_last_action = self.map_items_to_main_alt(self.last_actions)
+            text = font.render(str(top_player_last_action), True, (0, 0, 0))
+            self.game.display.screen.blit(text, (0, y_start))
+            y_start += text.get_rect().height
+            text = font.render(str(bottom_player_last_action), True, (0, 0, 0))
+            self.game.display.screen.blit(text, (0, y_start))
+            y_start += text.get_rect().height
             pygame.display.update()
-        pygame.time.delay(50)
+            pygame.time.delay(50)
 
 
     def match_step(self, render_all_steps=False):
@@ -309,7 +323,7 @@ class MatchWrapper(MLWrapper):
         
         while self.game.sim.sim_step < timestep_to_stop:
             self.game.step(skip_render=not render_all_steps, delay=0)
-            self.extra_display()
+            self.extra_display(render_all_steps)
 
 
         commands: dict[AgentRole, Optional[InputCommand]] = {AgentRole.MAIN: None, AgentRole.ALT: None}
@@ -321,9 +335,17 @@ class MatchWrapper(MLWrapper):
             self.cumulative_rewards[agent] += self.get_rewards(steps_to_wait, new_gold)
             self.last_gold[agent] = self.players[agent].gold
             self.last_sim_steps_to_wait[agent] = steps_to_wait
+        self.last_actions = commands
         
         self.game.step(commands[AgentRole.MAIN], commands[AgentRole.ALT], delay=0)
-        self.extra_display()
+        self.extra_display(render_all_steps)
+    
+    def map_items_to_main_alt(self, info_dict):
+        # MAIN/ALT roles just correspond to whether the agent/model is controlling self.game.player or self.game.alt_player
+        # It doesn't specific which team (TEAM_A - top or TEAM_B - bottom) MAIN/ALT correspond to
+        # This function is used to map display items for each role to the team that they are on
+        if self.game.team_to_play == TEAM_A: return info_dict[AgentRole.MAIN], info_dict[AgentRole.ALT]
+        else: return info_dict[AgentRole.ALT], info_dict[AgentRole.MAIN]
     
     def run_match(self, render=False, render_all_steps=False):
         done = False
@@ -359,7 +381,7 @@ class PVPWrapper(MLWrapper):
         self.cumulative_rewards = {AgentRole.MAIN: 0.0, AgentRole.ALT: 0.0}
         self.enemy_obs_mode = ObservationMode.SIMPLE_IMAGE
     
-    def set_enemy_model(self, model, obs_mode=ObservationMode.SIMPLE_IMAGE):
+    def set_enemy_info(self, model, obs_mode=ObservationMode.SIMPLE_IMAGE):
         self.enemy_model = model
         self.enemy_obs_mode = obs_mode
     

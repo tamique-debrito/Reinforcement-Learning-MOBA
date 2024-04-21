@@ -33,6 +33,7 @@ class Display:
       self.show_attack_range = show_attack_range
 
    def setUpScreen(self, width, height):
+      pygame.init()
       screen = pygame.display.set_mode((width, height))
       pygame.display.set_caption('Game')
       screen.fill(background_colour)
@@ -105,6 +106,14 @@ class InputCommand:
    y: Optional[float] = None
    item: Optional[Item] = None
 
+   def __str__(self) -> str:
+      extra_info = ""
+      if self.commandType in [InputCommandType.MOVE, InputCommandType.ATTACK, InputCommandType.FLASH_CAST, InputCommandType.Q_CAST]:
+         extra_info = f"x={self.x}, y={self.y}"
+      elif self.commandType == InputCommandType.BUY:
+         extra_info = f"item={self.item}"
+      return str(self.commandType).split(".")[1].split(":")[0] + " " + extra_info
+
 class KeyEvent(Enum):
    ATTACK = 1
    RECALL = 2
@@ -126,6 +135,10 @@ class InputTracker:
       x = (x - self.shiftX) / self.scale
       y = (y - self.shiftY) / self.scale
       return x, y
+   
+   def clear_events(self):
+      pygame.event.get()
+      return
    
    def step(self) -> Optional[InputCommand]:
       key_event = None

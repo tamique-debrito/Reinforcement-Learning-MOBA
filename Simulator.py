@@ -127,16 +127,16 @@ class Simulation:
     def rebuild_list(self):
         # Rebuilds the unit list and uid->index mapping, removing any inactive units
         newList = []
+        newUidToIndex = {}
         i = 0
         for unit in self.unitList:
             if unit.active:
                 unit.index = i
-                self.uidToIndex[unit.uid] = i
+                newUidToIndex[unit.uid] = i
                 i += 1
                 newList.append(unit)
-            else:
-                del self.uidToIndex[unit.uid]
         self.unitList = newList
+        self.uidToIndex = newUidToIndex
     
     def process_deaths(self):
         anyDeaths = False
