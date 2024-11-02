@@ -1,7 +1,5 @@
 from enum import Enum
 
-from sympy import mobius
-
 from CONSTANTS import *
 from dataclasses import dataclass
 from typing import Callable, List, Optional, Union
@@ -62,7 +60,7 @@ class ChannelReason(Enum):
 class AAState(Enum):
     READY = 0
     WINDUP = 1
-    COOLDOWN = 3
+    COOLDOWN = 2
 
 class EventType(Enum):
     AUTOATTACK = 1
@@ -109,6 +107,9 @@ class Minion:
         self.aggro_reset_timer = 0.0
 
         self.minion_line = MINION_LINE
+    
+    def can_take_damage(self):
+        return True
 
     def get_dist_to_target(self):
         assert self.target is not None
@@ -214,8 +215,10 @@ class Turret(Minion):
         super().__init__(x, y, stats, uid, index, team)
         self.state = UnitState.STILL
         self.stats.attack_range = TURRET_AGGRO_DISTANCE
+        self.invulnerable = True
 
-
+    def can_take_damage(self):
+        return not self.invulnerable
     
     def step(self, unit_list, add_aa_event_hook):
         if self.target is not None:
@@ -396,16 +399,13 @@ def get_closest_enemy_from_point(unitList: List[AnyUnit], x, y, team):
     return target
 
 
-def get_vec_k_units(unitList: List[AnyUnit], x, y, k, team):
+def get_vec_k_minions(unitList: List[AnyUnit], x, y, k):
     minions_by_distance = []
-    turrets = []
     for unit in unitList:
         if unit.unitType == UnitType.MINION:
             dist_squared = (unit.x - x) ** 2 + (unit.y - y) ** 2
             minions_by_distance.append((dist_squared, unit))
-        elif unit.unitType == UnitType.TURRET:
-            turrets.append(unit)
-
+            
     minions = [x[1] for x in sorted(minions_by_distance, key=lambda x: x[0])[:k]]
 
-    return minions, turrets[:4]
+    return minions

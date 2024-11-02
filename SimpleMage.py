@@ -39,7 +39,7 @@ class SimpleMage(Player):
         target = get_closest_enemy_from_point(unitList, x, y, self.team)
         if target is None:
             return
-        if self.get_dist_squared_to_specified_target(target) < self.Q_Range_Squared:
+        if self.get_dist_squared_to_specified_target(target) < self.Q_Range_Squared and target.can_take_damage():
             if self.Q_cooldown_tracker.cast():
                 damage = self.stats.attack_damage * 5 # TODO: Implement mana, magic damage, ability power and switch over
                 self.add_event_hook(targeted_damage_callback(target, damage), self.Q_Sim_Step_To_Hit) # add a callback event. This uses Simulator.add_callback_event_by_sim_step_delta

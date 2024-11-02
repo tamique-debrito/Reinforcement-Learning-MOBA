@@ -148,8 +148,18 @@ class Simulation:
                 if lastDamagingUnit is None: continue # TODO: update to account for player last damage on other players
                 if lastDamagingUnit.unitType == UnitType.PLAYER:
                     lastDamagingUnit.add_gold_and_xp(unit.stats.worth_gold, unit.stats.worth_xp)
+                elif unit.unitType == UnitType.TURRET:
+                    player = self.get_player_by_team(unit.team)
+                    if player is not None:
+                        player.add_gold_and_xp(unit.stats.worth_gold, unit.stats.worth_xp)
         return anyDeaths
     
+    def get_player_by_team(self, enemy_team) -> Optional[Player]:
+        # Get first player on opposite team of the one specified
+        for unit in self.unitList:
+            if unit.unitType == UnitType.PLAYER and unit.team != enemy_team:
+                return unit #type: ignore
+
     def get_unit_by_uid_safe(self, uid):
         if uid not in self.uidToIndex: return None
         return self.unitList[self.uidToIndex[uid]]
@@ -167,16 +177,17 @@ class Simulation:
                 if event.targetUid not in self.uidToIndex: continue # Target can die before the event is processed
                 target_index = self.uidToIndex[event.targetUid]
                 target = self.unitList[target_index]
-                dmg = calc_damage(target.stats, event.damage)
-                target.stats.health -= dmg
-                if dmg > 0 and target.unitType == UnitType.PLAYER:
-                    target.interrupt_channel()
-                target.last_damaging_uid = event.sourceUid
-                if event.sourceUid not in self.uidToIndex: continue # Source can die before the event is processed
-                source_index = self.uidToIndex[event.sourceUid]
-                source = self.unitList[source_index]
-                if source.unitType == UnitType.PLAYER:
-                    aggroEvents.append(AggroEvent(source))
+                if target.can_take_damage():
+                    dmg = calc_damage(target.stats, event.damage)
+                    target.stats.health -= dmg
+                    if dmg > 0 and target.unitType == UnitType.PLAYER:
+                        target.interrupt_channel()
+                    target.last_damaging_uid = event.sourceUid
+                    if event.sourceUid not in self.uidToIndex: continue # Source can die before the event is processed
+                    source_index = self.uidToIndex[event.sourceUid]
+                    source = self.unitList[source_index]
+                    if source.unitType == UnitType.PLAYER:
+                        aggroEvents.append(AggroEvent(source))
             elif event.eventType == EventType.CALLBACK:
                 event.callback()
         del self.events[self.sim_step]
@@ -201,8 +212,8 @@ class Simulation:
         return get_closest_enemy_from_point(self.unitList, x, y, team)
     
     
-    def get_vec_k_units(self, x, y, k, team):
-        return get_vec_k_units(self.unitList, x, y, k, team)
+    def get_vec_k_minions(self, x, y, k):
+        return get_vec_k_minions(self.unitList, x, y, k)
 
 
 

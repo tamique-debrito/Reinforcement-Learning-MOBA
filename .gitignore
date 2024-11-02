@@ -1,4 +1,5 @@
 venv/
-agent-collections/
+agent_collections/
 saved_models/
+notes/
 __pycache__

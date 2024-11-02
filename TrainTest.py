@@ -1,6 +1,8 @@
 from torch import device
-from MLWrapper import MLWrapper, ObservationMode, PVPWrapper
+from MLWrapper import MLWrapper, PVPWrapper
 from stable_baselines3 import PPO, A2C, TD3, SAC
+
+from ObservationSpaces import ObservationMode
 
 def test_model(model, steps=100):
     print("Done learning")
@@ -13,7 +15,7 @@ def test_model(model, steps=100):
         obs, reward, done, info = vec_env.step(action)
         vec_env.render()
 
-def run_test(obs_move=ObservationMode.FULL_IMAGE):
+def run_test(obs_move=ObservationMode.FULL_IMG):
     env = MLWrapper(50, 50, render_mode="human", obs_mode=obs_move)
 
     model = SAC("CnnPolicy", env, verbose=1, device="cuda:0")
@@ -54,6 +56,6 @@ def run_test_pvp():
 if __name__ == "__main__":
     #run_test("full image")
     model = PPO.load("./saved_models/ppo-model")
-    model.set_env(MLWrapper(50, 50, render_mode="human", obs_mode=ObservationMode.FULL_IMAGE))
+    model.set_env(MLWrapper(50, 50, render_mode="human", obs_mode=ObservationMode.FULL_IMG))
 
     test_model(model, 300)

@@ -10,6 +10,8 @@ MINION_AA_SIZE = 1.0
 MINION_AA_COLOR = (150, 100, 100)
 
 player_color = (0,255,00)
+color_team_A = (255,0,0)
+color_team_B = (0,0,255)
 background_colour = (255,255,255)
 moving_unit_color = (50,100,50)
 chasing_unit_color = (100,100,0)
@@ -23,7 +25,7 @@ aggro_range_color = chasing_unit_color
 attack_range_color = attacking_unit_windup_color
 
 class Display:
-   def __init__(self, width, height, show_aggro_range = False, show_attack_range = False, display_elem_tracking_only = False) -> None:
+   def __init__(self, width, height, show_aggro_range = False, show_attack_range = False, display_elem_tracking_only = False, shiftX = 0, shiftY = 0, scale = 1.0) -> None:
       self.display_elem_tracking_only = display_elem_tracking_only
       if not display_elem_tracking_only: self.screen = self.setUpScreen(width, height)
       self.display_elements: Dict[int, BaseDisplayElement] = {}
@@ -32,6 +34,11 @@ class Display:
       self.show_aggro_range = show_aggro_range
       self.show_attack_range = show_attack_range
 
+      # Game -> screen coordinate mapping
+      self.shiftX = shiftX
+      self.shiftY = shiftY
+      self.scale = scale
+
    def setUpScreen(self, width, height):
       pygame.init()
       screen = pygame.display.set_mode((width, height))
@@ -39,14 +46,28 @@ class Display:
       screen.fill(background_colour)
       pygame.display.flip()
       return screen
+   
+   def put_circle(self, x, y, r, color, width=0):
+      x, y, r = transform_coords(x, y, r, self.shiftX, self.shiftY, self.scale)
+      pygame.draw.circle(self.screen, color, (x, y), float(r), width=width)
+   
+   def put_X(self, x, y, r, color, width=2):
+      x, y, r = transform_coords(x, y, r, self.shiftX, self.shiftY, self.scale)
+      pygame.draw.line(self.screen, color, (x - r, y - r), (x + r, y + r), width=width)
+      pygame.draw.line(self.screen, color, (x - r, y + r), (x + r, y - r), width=width)
 
-   def renderState(self, units: List[Minion], shiftX=0, shiftY=0, scale=1.0, delay=100, skip_render=False):
+   def put_line(self, x1, y1, x2, y2, color, width=1):
+      x1, y1, _ = transform_coords(x1, y1, 0, self.shiftX, self.shiftY, self.scale)
+      x2, y2, _ = transform_coords(x2, y2, 0, self.shiftX, self.shiftY, self.scale)
+      pygame.draw.line(self.screen, color, (x1, y1), (x2, y2), width=width)
+
+   def renderState(self, units: List[Minion], delay=100, skip_render=False):
       if self.display_elem_tracking_only or skip_render:
-         self.process_display_elements(shiftX, shiftY, scale, skip_render=skip_render)
+         self.process_display_elements(self.shiftX, self.shiftY, self.scale, skip_render=skip_render)
          return
       self.screen.fill(background_colour)
       for unit in units:
-         entX, entY, entSize = transform_coords(unit.x, unit.y, unit.stats.size, shiftX, shiftY, scale)
+         entX, entY, entSize = transform_coords(unit.x, unit.y, unit.stats.size, self.shiftX, self.shiftY, self.scale)
          if unit.unitType == UnitType.PLAYER:
             if unit.state == UnitState.CHANNELING: color_to_use=chanelling_unit_color
             else: color_to_use = player_color
@@ -62,11 +83,13 @@ class Display:
          else:
             color_to_use = error_unit_color
          pygame.draw.circle(self.screen, color_to_use, (entX, entY), float(entSize))
-         if self.show_aggro_range: pygame.draw.circle(self.screen, aggro_range_color, (entX, entY), float(unit.aggroRange * scale), width=1)
-         if self.show_attack_range: pygame.draw.circle(self.screen, attack_range_color, (entX, entY), float(unit.stats.attack_range * scale), width=1)
+         team_color_to_use = color_team_A if unit.team == TEAM_A else color_team_B
+         pygame.draw.circle(self.screen, team_color_to_use, (entX, entY), float(entSize * 0.5))
+         if self.show_aggro_range: pygame.draw.circle(self.screen, aggro_range_color, (entX, entY), float(unit.aggroRange * self.scale), width=1)
+         if self.show_attack_range: pygame.draw.circle(self.screen, attack_range_color, (entX, entY), float(unit.stats.attack_range * self.scale), width=1)
          pygame.draw.rect(self.screen,(0, 255, 0), pygame.rect.Rect(entX - entSize, entY + entSize + 3, unit.stats.health / unit.stats.max_health * 2 * entSize, 5.0))
 
-      self.process_display_elements(shiftX, shiftY, scale)
+      self.process_display_elements(self.shiftX, self.shiftY, self.scale)
 
       pygame.display.flip()
       pygame.time.delay(delay)

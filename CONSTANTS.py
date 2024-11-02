@@ -1,9 +1,15 @@
+from enum import Enum
+
+
 TIMESTEP = 0.1
 
 AGGRO_RESET_TIME = 5.0
 
 MINION_AGGRO_DISTANCE = 25.0
 TURRET_AGGRO_DISTANCE = 20.0
+TURRENT_ATTACK_RANGE = TURRET_AGGRO_DISTANCE + 1
+PLAYER_ATTACK_RANGE = 15.0
+
 
 AA_HIT_TIME = 1.0
 
@@ -20,8 +26,13 @@ PLAYER_LINE = TURRET_LINE - TURRET_SIZE - 2 * MINION_SIZE - PLAYER_MAX_SIZE
 
 LINE_FOLLOW_THRESH = MINION_SIZE
 
+# TODO: switch out references to these constants to the enum below
 TEAM_A = 1
 TEAM_B = 2
+
+class Team(Enum):
+    TEAM_A = 1
+    TEAM_B = 2
 
 XP_THRESHOLDS = {
     2: 300,
