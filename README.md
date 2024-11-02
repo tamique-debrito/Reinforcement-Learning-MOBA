@@ -5,6 +5,7 @@ Also, implemented some efficiency enhancements (multiprocessing to train multipl
 When I last worked on this, the agents had not yet learning optimal behaviors, but did occasionally demonstrate basic strategies such as "kiting" (movement in between attacks to minimize vulnerability. Mostly forward/backward motion) and retreating when low on health.
 
 This is what the environment looks like:
+
 ![image](https://github.com/user-attachments/assets/5d017e43-681d-40bc-a05c-e71e428c1d44)
 
 Each circle is a unit. The color of the center of the circle signifies which team it's on. The size of the circle and the color of the outer layer signifies the unit type.
