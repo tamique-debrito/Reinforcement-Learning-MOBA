@@ -1,8 +1,8 @@
-This project explores RL algorithms in a simplified [MOBA](https://en.wikipedia.org/wiki/Multiplayer_online_battle_arena) environment. I used Stable Baselines to allow focusing on the multi-agent training/tracking/management framework, experimentation with representations, and reward shaping.
+This project explores RL algorithms in a simplified [MOBA](https://en.wikipedia.org/wiki/Multiplayer_online_battle_arena) environment. The goal is to train AI Agents to play the MOBA game successfully. I used Stable Baselines to allow focusing on the multi-agent training/tracking/management framework, experimentation with representations, and reward shaping.
 
-Also, implemented some efficiency enhancements (multiprocessing to train multiple agents at the same time considering the low GPU utilization from small models, cuda and cython for game engine), but those didn't end up being practically useful at the scale of this project. I don't think they're included in this repository.
+Also, I implemented some efficiency enhancements (multiprocessing to train multiple agents at the same time considering the low GPU utilization from small models, cuda and cython for game engine), but those didn't end up being practically useful at the scale of this project. They're not included in this repository.
 
-When I last worked on this, the agents had not yet learned optimal behaviors, but did occasionally demonstrate basic strategies such as "kiting" (movement in between attacks to minimize vulnerability. Mostly forward/backward motion) and retreating when low on health.
+When I last worked on this, the agents had not yet learned optimal behaviors, but did occasionally demonstrate basic strategies. For example, what's called "kiting" in MOBAs (movement in between attacks to minimize vulnerability. Mostly forward/backward motion) and retreating when low on health.
 
 This is what the environment looks like:
 
