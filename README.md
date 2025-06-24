@@ -1,4 +1,4 @@
-This project explores RL algorithms in a simplified [MOBA](https://en.wikipedia.org/wiki/Multiplayer_online_battle_arena) environment. The goal is to train AI Agents to play the MOBA game successfully. So far, the agents have learned some basic useful behaviors.
+This project explores MARL algorithms in a simplified [MOBA](https://en.wikipedia.org/wiki/Multiplayer_online_battle_arena) environment. The goal is to train AI Agents to play the MOBA game successfully. So far, the agents have learned some basic useful behaviors.
 
 I used Stable Baselines to allow focusing on the multi-agent training/tracking/management framework, experimentation with representations, and reward shaping. Also, I implemented some efficiency enhancements (multiprocessing to train multiple agents at the same time considering the low GPU utilization from small models, cuda and cython for game engine), but those didn't end up being practically useful at the scale of this project. They're not included in this repository.
 
